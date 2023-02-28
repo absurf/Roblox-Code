@@ -1,0 +1,322 @@
+--simple variables
+local RemoteEvent = game.ReplicatedStorage.RemoteEvent
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+
+--the client calls this and then it starts
+RemoteEvent.OnServerEvent:Connect(function(player, data)
+	local character = game.Workspace[player.Name]
+	if data.Action == "Start" then
+		--Folder Location
+		local SeaMonsterFolder = game.ServerStorage.WorldAssets.particles.lilseamonster
+		
+		local Excluding = {}
+		
+		
+		local StartIt = true
+		
+		-- This randomizes the pet CFrame, and if there is no ground beloow it then it does not register.
+		local function StartPart()
+			local Part = Instance.new("Part", game.Workspace)
+			Part.Anchored = true
+			Part.Size = Vector3.new(1,1,1)
+			Part.CanCollide = false
+			Part.Transparency = 1
+			Part.CFrame = character.HumanoidRootPart.CFrame * CFrame.new(math.random(-5,5),-2,math.random(-5,5))
+
+			for i,v in pairs(game.Players:GetChildren()) do
+				local CharacterToIgnore = game.Workspace[v.Name]
+				table.insert(Excluding, CharacterToIgnore)
+			end		
+
+
+			local RayCastParams = RaycastParams.new()
+			RayCastParams.FilterType = Enum.RaycastFilterType.Blacklist
+			RayCastParams.FilterDescendantsInstances = Excluding
+
+			print(Excluding)
+
+
+			local Result = game.Workspace:Raycast(Part.Position, Vector3.new(0,-5,0))
+
+			if Result then
+				game.Debris:AddItem(Part,1)
+				return Result, true
+				
+			else
+				
+				game.Debris:AddItem(Part, 0)
+				print("Removed a part because it was floating in the Air!")
+				
+				
+				
+				return nil, false
+				
+				
+				
+			end
+		end
+		
+		--Two values
+		local raycastpart, FindTrue  = nil, false
+		
+		
+		--If it is ready, I call this function to then start everything.
+		local function StartTurret()
+			print(raycastpart)
+			StartIt = false
+			local Completed = false
+			local ClosestPlayer = nil
+			local ContinueLoop = true
+			local Ticks = 0
+			local Coolness = 0
+
+			local ListOfPeople = {}
+
+
+			local CFrameValue = Instance.new("CFrameValue")
+
+
+			local SeaMonsterModel = SeaMonsterFolder.lilseamonster:Clone()
+			SeaMonsterModel.Parent = game.Workspace
+
+			--Sets the whole CFrame of the model
+			SeaMonsterModel:SetPrimaryPartCFrame(CFrame.new(raycastpart.Position.X, raycastpart.Position.Y - 2, raycastpart.Position.Z))
+
+			print(SeaMonsterModel:GetPrimaryPartCFrame())
+			CFrameValue.Value = SeaMonsterModel:GetPrimaryPartCFrame()
+			--print(CFrameValue.Value)
+
+			local TweenModel = TweenService:Create(CFrameValue, TweenInfo.new(1, Enum.EasingStyle.Exponential), {Value = CFrameValue.Value * CFrame.new(0,3,0)})
+			TweenModel:Play()
+
+			--Does this when the tween is completed
+			TweenModel.Completed:Connect(function()
+				print("Trye!")
+				Completed = true
+			end)
+
+			while not Completed do
+				print("LOOPING")
+				SeaMonsterModel:SetPrimaryPartCFrame(CFrameValue.Value)	
+				task.wait()
+			end
+
+			--Hitbox of the whole pet attack range
+			local HitBox = Instance.new("Part", game.Workspace)
+			HitBox.Name = "Hitbox"
+			HitBox.Anchored = true
+			HitBox.CanCollide = false
+			HitBox.Size = Vector3.new(26, 6, 30)
+			HitBox.Transparency =	1
+
+			HitBox.CFrame = SeaMonsterModel.PrimaryPart.CFrame
+
+			--Finds people who are touching the hitbox
+			HitBox.Touched:Connect(function(Touching)
+				if Touching.Parent:FindFirstChild("Humanoid") and Touching.Parent.Name ~= player.Name and not table.find(ListOfPeople, Touching.Parent) and Touching.Parent:FindFirstChild("Humanoid").Health > 0 then
+					table.insert(ListOfPeople, Touching.Parent)
+					print("Insrted")
+
+				end
+			end)
+
+			task.wait(0.2)
+
+			--Beam of the monster with VFX.
+			local BeamCore = SeaMonsterFolder.BeamCore:Clone()
+			BeamCore.Parent = game.Workspace
+
+
+			local WeldBeamCore = Instance.new("Weld", BeamCore)
+			WeldBeamCore.Part0 = BeamCore
+			WeldBeamCore.Part1 = SeaMonsterModel.Hello
+
+			local BeamEnd = SeaMonsterFolder.BeamEnd:Clone()
+			BeamEnd.Parent = game.Workspace
+
+			for i,v in pairs(BeamCore.Beams:GetChildren()) do
+				if v:IsA("Beam") then
+					v.Attachment1 = BeamEnd.Attachment2
+				end
+			end
+
+
+
+			local LookAtCframe = Instance.new("CFrameValue")
+
+			spawn(function()
+				--This adds a little bobbing effect of the pet, like it goes up and down.
+				while ContinueLoop do
+					Coolness += 1
+
+					if Coolness % 2 == 0 then
+
+						local Completed = false
+
+						local TweenModel = TweenService:Create(CFrameValue, TweenInfo.new(1, Enum.EasingStyle.Sine), {Value = CFrameValue.Value * CFrame.new(0,-0.1,0)})
+						TweenModel:Play()
+
+						TweenModel.Completed:Connect(function()
+						--	print("Trye!")
+							Completed = true
+						end)
+
+						while not Completed do
+						--	print("LOOPING")
+							SeaMonsterModel:SetPrimaryPartCFrame(CFrameValue.Value)	
+							task.wait()
+						end
+					else
+						local Completed = false
+
+						local TweenModel = TweenService:Create(CFrameValue, TweenInfo.new(1, Enum.EasingStyle.Sine), {Value = CFrameValue.Value * CFrame.new(0,0.1,0)})
+						TweenModel:Play()
+
+						TweenModel.Completed:Connect(function()
+						--	print("Trye!")
+							Completed = true
+						end)
+
+						while not Completed do
+						--	print("LOOPING")
+							SeaMonsterModel:SetPrimaryPartCFrame(CFrameValue.Value)	
+							task.wait()
+						end
+					end
+
+
+
+
+					--task.wait(0.1)
+				end
+			end)
+			--100 Ticks of daamage, and continuosly loops to find the nearest person in the hitbox range, and it does not detect dead players.
+			while ContinueLoop do
+
+				if Ticks >= 100 then
+					ContinueLoop = false
+				--	print("Done!")
+				end
+				for i,v in pairs(ListOfPeople) do
+					if ContinueLoop == true then
+						if ClosestPlayer then
+							if ClosestPlayer.Humanoid.Health == 0 then
+								table.remove(ListOfPeople, table.find(ListOfPeople, ClosestPlayer.Parent))
+								ClosestPlayer = nil
+							elseif	 (ClosestPlayer.HumanoidRootPart.Position - SeaMonsterModel.PrimaryPart.Position).Magnitude > 30 then
+								print((ClosestPlayer.HumanoidRootPart.Position - SeaMonsterModel.PrimaryPart.Position).Magnitude)
+								table.remove(ListOfPeople, table.find(ListOfPeople, ClosestPlayer.Parent))
+								ClosestPlayer = nil
+							elseif (v.HumanoidRootPart.Position - SeaMonsterModel.PrimaryPart.Position).Magnitude < (ClosestPlayer.HumanoidRootPart.Position - SeaMonsterModel.PrimaryPart.Position).Magnitude and v.Humanoid.Health > 0 then
+								ClosestPlayer = v
+							end
+
+						else
+							ClosestPlayer = v
+					end
+
+						end
+				end
+
+
+
+				--If there isn't a close player, then the beam gets set to the monster pet model cframe, but if there is, then it gets set to the player, so then the beam shows it going to the player.
+				if ClosestPlayer ~= nil then
+
+
+
+					LookAtCframe.Value = ClosestPlayer.HumanoidRootPart.CFrame
+					ClosestPlayer:FindFirstChild("Humanoid"):TakeDamage(0.5)
+
+					if BeamEnd.Loop.Playing == false then
+						BeamEnd.Loop.Playing = true
+					end
+
+					if BeamEnd.Anchored == true then
+						BeamEnd.Anchored = false
+					end
+
+					if BeamEnd.HitPlayer.Flare.Enabled == false and BeamEnd.HitPlayer.PointLight.Enabled == false and BeamEnd.HitPlayer.Puffs.Enabled == false then
+						BeamEnd.HitPlayer.Flare.Enabled = true
+						BeamEnd.HitPlayer.PointLight.Enabled = true
+						BeamEnd.HitPlayer.Puffs.Enabled = true
+					end
+
+					if BeamEnd:FindFirstChild("Weld") then
+						game.Debris:AddItem(BeamEnd:FindFirstChild("Weld"),0)
+					end
+					local WeldBeamEnd = Instance.new("Weld", BeamEnd)
+					WeldBeamEnd.Part0 = BeamEnd
+					WeldBeamEnd.Part1 = ClosestPlayer.HumanoidRootPart
+				else
+
+					if BeamEnd.HitPlayer.Flare.Enabled == true and BeamEnd.HitPlayer.PointLight.Enabled == true and BeamEnd.HitPlayer.Puffs.Enabled == true then
+						BeamEnd.HitPlayer.Flare.Enabled = false
+						BeamEnd.HitPlayer.PointLight.Enabled = false
+						BeamEnd.HitPlayer.Puffs.Enabled = false
+					end
+
+					if BeamEnd.Loop.Playing == true then
+						BeamEnd.Loop.Playing = false
+					end
+
+					if BeamEnd:FindFirstChild("Weld") then
+						game.Debris:AddItem(BeamEnd:FindFirstChild("Weld"),0)
+
+
+
+					end
+
+					--	task.wait(0.2)
+					BeamEnd.Anchored = true
+					BeamEnd.CFrame = SeaMonsterModel.PrimaryPart.CFrame
+
+
+				end
+
+				Ticks += 1
+				task.wait(0.1)
+
+			end
+
+			print("it finished Dumb")
+
+			game.Debris:AddItem(HitBox, 0)
+			game.Debris:AddItem(BeamEnd, 0)
+			game.Debris:AddItem(BeamCore, 0)
+
+			task.wait(1)
+
+			local Completed = false
+--This is for the pet to go below the ground and then it will get destroyed
+			local TweenModel = TweenService:Create(CFrameValue, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {Value = CFrameValue.Value * CFrame.new(0,-4,0)})
+			TweenModel:Play()
+
+			TweenModel.Completed:Connect(function()
+				print("Trye!")
+				Completed = true
+			end)
+			while not Completed do
+				print("LOOPING")
+				SeaMonsterModel:SetPrimaryPartCFrame(CFrameValue.Value)	
+				task.wait()
+			end
+			game.Debris:AddItem(SeaMonsterModel, 0.2)
+		end
+    
+		--This is to check if there is a floor under where the pet is going to spawn at.
+		while StartIt do
+			print("Started")
+			if FindTrue == true and raycastpart ~= nil then
+				StartTurret()
+			elseif FindTrue == false and raycastpart == nil then
+				raycastpart, FindTrue = StartPart()
+				print("hello")
+			end
+			task.wait()
+		end
+	end
+end)
